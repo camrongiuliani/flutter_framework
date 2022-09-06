@@ -1,0 +1,33 @@
+name: onboarding_module
+description: A new Flutter package project.
+version: 0.0.1
+homepage:
+
+environment:
+  sdk: ">=2.17.6 <3.0.0"
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  bvvm: ^0.0.1+1
+
+  framework_example:
+    path: ../../../../../framework_example
+
+  app:
+    path: ../../../../../../framework
+
+  framework_annotations:
+    path: ../../../../../../framework_annotations
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+  build_runner: ^2.2.0
+
+
+flutter:

@@ -1,0 +1,13 @@
+builders:
+  framework_builder:
+    import: "package:framework_builder/framework_builder.dart"
+    # The builder function name, which gets called on build/watch
+    builder_factories: ["frameworkBuilder"]
+    # The 'partId' argument to 'SharedPartBuilder' is 'framework'
+    build_extensions: {".dart": [".framework.g.part"]}
+    # Apply the Builder to the package with a direct dependency on the package exposing the builder
+    auto_apply: dependents
+    build_to: source
+    # To copy the '.g.dart' content into '.g.dart' in the source tree
+    # Combine the output of multiple builders into one output (combining_builder)
+    applies_builders: ["source_gen|combining_builder"]

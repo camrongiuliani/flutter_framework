@@ -1,0 +1,39 @@
+name: framework_example
+description: A new Flutter project.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.17.6 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  app:
+    path: ../../framework
+
+  framework_annotations:
+    path: ../../framework_annotations
+
+  onboarding_module:
+    path: ./lib/src/modules/onboarding
+
+
+  freezed_annotation: ^2.1.0
+  json_annotation: ^4.6.0
+  chopper: ^4.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^2.0.0
+
+  build_runner: ^2.2.0
+
+  framework_builder:
+    path: ../../framework_builder
+
+flutter:
+  uses-material-design: true
