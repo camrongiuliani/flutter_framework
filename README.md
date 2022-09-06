@@ -2,13 +2,15 @@
 ## Overview
 This Framework aims to provide an app with a modular design approach that conforms to the SOLID principles.
 
-The Framework is comprised of Components.
+![Compose](https://raw.githubusercontent.com/camrongiuliani/flutter_framework/develop/img/arch-compose.png)
+
+The Framework is comprised of Components, and pushes the [BVVM pattern](https://github.com/camrongiuliani/flutter_bvvm).
+![BVVM](https://raw.githubusercontent.com/camrongiuliani/flutter_framework/develop/img/arch-bvvm.png)
 
 The main Component is the Application class.
 
 
 ## Application
-
 The Application is a singleton that is used to register and maintain dependencies, as well as other Components.
 
 Application has built-in storage (mutable and immutable) and will have SecureStorage implemented near-term.
