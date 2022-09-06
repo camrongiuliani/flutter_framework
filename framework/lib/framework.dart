@@ -28,3 +28,4 @@ export 'package:app/src/slice/content_slice.dart';
 
 export 'package:app/src/models/view_arguments.dart';
 export 'package:app/src/models/framework_component.dart' show FrameworkComponentBuilder;
+export 'package:v_widgets/v_widgets.dart';

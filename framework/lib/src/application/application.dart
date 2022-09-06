@@ -17,21 +17,16 @@ import 'package:v_widgets/v_widgets.dart';
 class Application extends FrameworkComponent {
 
   /// Default [Application] constructor.
-  Application._( this.appBus, this.typeAdapters, AppViewModel? viewModel );
+  Application._( this.appBus, this.typeAdapters, this._viewModel, this.storageID );
 
   /// Returns a singleton [_instance] of [Application]
   factory Application( { EventBus? bus, AppViewModel? viewModel, List<dynamic> typeAdapters = const [] } ) {
-    return _instance ??= Application._( AppEventBus( eventBus: bus ), typeAdapters, viewModel );
+    return _instance ??= Application._( AppEventBus( eventBus: bus ), typeAdapters, viewModel, null );
   }
 
-  /// Creates a non-singleton App instance (works only in debug mode and tests).
-  @visibleForTesting
-  static Application? debugCreate({ EventBus? bus, List<dynamic> typeAdapters = const [], AppViewModel? viewModel }) {
-    if ( kDebugMode ) {
-      return Application._( AppEventBus( eventBus: bus ), typeAdapters, viewModel );
-    }
-
-    return null;
+  /// Creates a non-singleton App instance (for headless).
+  factory Application.headless({ required String storageID, EventBus? bus, List<dynamic> typeAdapters = const [], AppViewModel? viewModel }) {
+    return Application._( AppEventBus( eventBus: bus ), typeAdapters, viewModel, storageID );
   }
 
   /// Returns the [Application] most closely associated with the given context.
@@ -76,6 +71,8 @@ class Application extends FrameworkComponent {
   /// The [Application] singleton instance.
   static Application? _instance;
 
+  final String? storageID;
+
   /// [Application] provided key-value storage.
   ///
   /// Contains data store
@@ -83,7 +80,7 @@ class Application extends FrameworkComponent {
   /// See Also:
   ///   * [BaseStore],
   ///   * [KeyValueStore]
-  Storage get storage => _storage ??= Storage();
+  Storage get storage => _storage ??= Storage( storageID );
 
   /// Single set [Storage] instance.
   Storage? _storage;
@@ -260,11 +257,11 @@ class Application extends FrameworkComponent {
   }
 
   Future<String> get deviceID async {
-    String? id = await storage.singleSet.get( storage_key_device_id );
+    String? id = await storage.immutable.get( storage_key_device_id );
 
     if ( id == null ) {
       id = const Uuid().v4();
-      storage.singleSet.set( storage_key_device_id, id );
+      storage.immutable.set( storage_key_device_id, id );
     }
 
     return id;
