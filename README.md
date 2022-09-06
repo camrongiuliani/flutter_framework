@@ -1,5 +1,5 @@
 
-## Overview
+## Intro
 This Framework aims to provide an app with a modular design approach that conforms to the SOLID principles.
 
 ![Compose](https://raw.githubusercontent.com/camrongiuliani/flutter_framework/develop/img/arch-compose.png)
@@ -8,6 +8,9 @@ The Framework is comprised of Components, and pushes the [BVVM pattern](https://
 ![BVVM](https://raw.githubusercontent.com/camrongiuliani/flutter_framework/develop/img/arch-bvvm.png)
 
 The main Component is the Application class.
+
+## Component Overview
+![Overview](https://raw.githubusercontent.com/camrongiuliani/flutter_framework/develop/img/arch-app-overview.png)
 
 
 ## Application
@@ -78,6 +81,8 @@ Modules can depend on Services but Services should not depend on each other (whe
 
 ## Routing
 The Application coordinates intra-module and inter-module routing.
+
+![Routing](https://raw.githubusercontent.com/camrongiuliani/flutter_framework/develop/img/arch-routing.png)
 
 All modules use a shared router that is instantiated inside of the Application class.
 
