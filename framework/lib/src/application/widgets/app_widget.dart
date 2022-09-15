@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide Router;
 import 'package:flutter/services.dart';
 import 'package:app/framework.dart';
@@ -52,6 +54,7 @@ class _AppState extends State<App> {
 
   Listenable? systemChromeListenable;
   void Function()? listenerFunc;
+  StreamSubscription? onEventSub;
 
   @override
   void initState() {
@@ -76,7 +79,7 @@ class _AppState extends State<App> {
 
     // TODO: Make sure this doesn't leak
     if ( widget.onEvent != null ) {
-      widget.application.onEvent.listen((event) {
+     onEventSub =  widget.application.onEvent().listen((event) {
         synchronized(() => widget.onEvent!( event) );
       });
     }
@@ -90,6 +93,9 @@ class _AppState extends State<App> {
     if ( listenerFunc != null ) {
       systemChromeListenable?.removeListener( listenerFunc! );
     }
+
+    onEventSub?.cancel();
+
     super.dispose();
   }
 

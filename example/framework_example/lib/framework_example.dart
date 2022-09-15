@@ -26,11 +26,6 @@ class ExampleFramework {
 
     application.register<OnboardingModule>( OnboardingModule(application) );
 
-    application.registerAsync( FrameworkComponentBuilder( () => OnboardingModule( application ) ) );
-
-    application.component<OnboardingModule>();
-    application.componentExists<OnboardingModule>();
-
     await application.init();
 
     return application;

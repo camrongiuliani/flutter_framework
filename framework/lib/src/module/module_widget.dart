@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart' hide Router;
 import 'package:app/framework.dart';
-import 'package:v_widgets/v_widgets.dart';
 
 class ModuleWidget extends StatefulWidget {
 

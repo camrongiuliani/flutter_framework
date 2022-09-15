@@ -10,24 +10,18 @@ class FrameworkNavigator {
 
   final Application application;
 
-  static FrameworkNavigator? instance;
-
-  FrameworkNavigator._( this.application ) : key = GlobalKey<NavigatorState>( debugLabel: 'Root Navigator' );
-
-  factory FrameworkNavigator( [ Application? application ] ) {
-    assert( instance != null || application != null, 'Invalid call to FrameworkNavigator. Must pass application or have existing instance.' );
-    return instance ??= FrameworkNavigator._( application! );
-  }
+  FrameworkNavigator( this.application ) : key = GlobalKey<NavigatorState>( debugLabel: 'Root Navigator' );
 
   Route<dynamic>? generateRoute( RouteSettings settings ) {
     for ( var module in application.modules ) {
       if ( module.canHandleRoute( settings.name ) ) {
+
+        ContentRoute request = module.routes.firstWhere( ( r ) => r.routeName == settings.name );
+
+        bool guarded = module.checkGuard( request );
+
         if ( module.navigator != null ) {
-          return CupertinoPageRoute( settings: settings, builder: ( context ) {
-            return module.routes
-                .firstWhere( ( r ) => r.routeName == settings.name )
-                .builder();
-          });
+          return CupertinoPageRoute( settings: settings, builder: (_) => request.builder() );
         } else {
           Widget moduleWidget = ModuleProvider(
             module: module,
@@ -50,15 +44,15 @@ class FrameworkNavigator {
   }
 
   bool _moduleCanHandle( String routeName ) {
-    return application.activeProvider?.module.canHandleRoute( routeName ) ?? false;
+    return application.activeModule?.canHandleRoute( routeName ) ?? false;
   }
 
   NavigatorState _getRouter( String routeName ) {
     if ( _moduleCanHandle( routeName ) == true ) {
-      var mState = application.activeProvider?.module.key.currentState;
+      var mState = application.activeModule?.key.currentState;
 
       if ( mState != null ) {
-        return application.activeProvider!.module.key.currentState!;
+        return mState;
       }
     }
 
@@ -67,20 +61,20 @@ class FrameworkNavigator {
   }
 
   Future<T?> pushNamed<T extends Object?>( String routeName, { Object? arguments }) async {
-    await application.activeProvider?.module.willPush( routeName );
+    await application.activeModule?.willPush( routeName );
 
     return _getRouter( routeName ).pushNamed( routeName, arguments: arguments );
   }
 
   Future<bool> shouldPop( BuildContext context ) async {
-    ModuleProvider? mp = application.activeProvider;
-    BuildContext? ctx = mp?.module.key.currentContext;
+    Module? module = application.activeModule;
+    BuildContext? ctx = module?.key.currentContext;
 
     if ( ctx != null ) {
       ModalRoute? route = ModalRoute.of( ctx );
 
       if ( route != null ) {
-        return await mp!.module.shouldPop( route.settings.name!, ctx );
+        return await module!.shouldPop( route.settings.name!, ctx );
       }
     }
 
@@ -88,7 +82,7 @@ class FrameworkNavigator {
   }
 
   void pop<T>([ T? result ]) {
-    var module = application.activeProvider?.module;
+    var module = application.activeModule;
     var moduleState = module?.key.currentState;
 
     if ( moduleState?.canPop() == true ) {

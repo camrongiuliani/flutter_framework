@@ -21,5 +21,7 @@ extension StringExtension on String {
     return s[0].toLowerCase() + s.substring(1);
   }
 
+  String get canonicalize => this.replaceAll(RegExp(r'[^\w\s]+'), '_').replaceFirst('_', '').camelCase;
+
   bool get isUrl => startsWith( 'http' ) && Uri.tryParse( this )?.isAbsolute == true;
 }

@@ -8,11 +8,11 @@ import 'package:onboarding_module/ui/pages/store_front/bloc.dart';
 import 'package:onboarding_module/ui/pages/store_front/page.dart';
 import 'package:onboarding_module/ui/pages/store_front/view_model.dart';
 
-@FrameworkModule(
+@MaestroModule(
   baseRoute: OnboardingModule.route,
-  childRoutes: {
-    StoreFrontPage: StoreFrontPage.route,
-  },
+  childRoutes: [
+    StoreFrontPage.route,
+  ],
 )
 class OnboardingModule extends Module {
 
@@ -42,8 +42,8 @@ class OnboardingModule extends Module {
   List<ContentRoute> buildRoutes() {
     return [
       ContentRoute(
-        contentType: ContentType.deprecate,
-        routeName: FrameworkRoutes.onboardingStoreFront,
+        owner: this,
+        routeName: Maestro.routes.onboardingStoreFront,
         builder: ([ args ]) {
 
           StoreFrontViewModel vm = StoreFrontViewModel();

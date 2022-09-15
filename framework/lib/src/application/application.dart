@@ -1,33 +1,95 @@
-library meetri_core;
+library app;
 
 import 'dart:async';
+import 'package:app/src/application/registries/component.dart';
+import 'package:app/src/application/registries/route.dart';
+import 'package:app/src/application/registries/slice.dart';
+import 'package:app/src/application/controllers/storage_controller.dart';
+import 'package:app/src/application/registries/use_case.dart';
+import 'package:app/src/application/utils/frame_mixin.dart';
+import 'package:app/src/application/controllers/view_controller.dart';
 import 'package:app/src/models/framework_component.dart';
 import 'package:app/src/router/framework_router.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' hide Router;
-import 'package:logger/logger.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:logger/logger.dart';
 import 'package:event_bus/event_bus.dart';
 import 'package:uuid/uuid.dart';
 import 'package:app/framework.dart';
-import 'package:app/src/bus/bus.dart';
-import 'package:app/src/storage/storage.dart';
-import 'package:v_widgets/v_widgets.dart';
 
-class Application extends FrameworkComponent {
+part 'bus/bus_part.dart';
+
+class Application extends FrameworkComponent with FrameMixin {
+
+  /// The [Application] singleton instance.
+  static Application? _instance;
+
+  /// Initial route for App navigator
+  final String? initialRoute;
+
+  /// Type adapters for use with [_StorageController]
+  final List<dynamic> typeAdapters;
+
+  /// Logging utility
+  final Logger logger;
+  
+  /// Registry for [FrameworkComponent] dependencies
+  final ComponentRegistry _componentRegistry;
+
+  /// Registry for enabled [ContentRoute]s
+  final RouteRegistry _routeRegistry;
+
+  /// Registry for enabled [ContentSlice]s
+  final SliceRegistry _sliceRegistry;
+
+  /// Registry for enabled [UseCase]s
+  final UseCaseRegistry _useCaseRegistry;
+
+
+  /// App level view controller (app bars, nav bars, bottom sheets)
+  final ViewController _viewController;
+
+  /// App level storage (mutable and immutable)
+  final StorageController _storageController;
 
   /// Default [Application] constructor.
-  Application._( this.appBus, this.typeAdapters, this._viewModel, this.storageID );
+  Application._( this.typeAdapters, this.initialRoute, Level logLevel, String? storageID ) :
+        logger = Logger(
+          level: logLevel,
+          printer: PrettyPrinter(),
+        ),
+        _storageController = StorageController( storageID ),
+        _viewController = ViewController( logLevel ),
+        _routeRegistry = RouteRegistry( logLevel ),
+        _sliceRegistry = SliceRegistry( logLevel ),
+        _useCaseRegistry = UseCaseRegistry( logLevel ),
+        _componentRegistry = ComponentRegistry( logLevel );
 
   /// Returns a singleton [_instance] of [Application]
-  factory Application( { EventBus? bus, AppViewModel? viewModel, List<dynamic> typeAdapters = const [] } ) {
-    return _instance ??= Application._( AppEventBus( eventBus: bus ), typeAdapters, viewModel, null );
+  factory Application( {  String? initialRoute, List<dynamic> typeAdapters = const [], Level logLevel = Level.verbose } ) {
+    return _instance ??= Application._( typeAdapters, initialRoute, logLevel, null );
   }
 
-  /// Creates a non-singleton App instance (for headless).
-  factory Application.headless({ required String storageID, EventBus? bus, List<dynamic> typeAdapters = const [], AppViewModel? viewModel }) {
-    return Application._( AppEventBus( eventBus: bus ), typeAdapters, viewModel, storageID );
+  /// Creates a non-singleton App instance (for headless and testing).
+  factory Application.headless({
+    required String storageID,
+    List<dynamic> typeAdapters = const [],
+    String? initialRoute,
+    Level logLevel = Level.verbose,
+  }) {
+    return Application._( typeAdapters, initialRoute, logLevel, storageID );
   }
+
+  /// [Application] [Router] singleton instance.
+  ///
+  /// See Also:
+  ///   * [Router] - Flutter navigation wrapper,
+  ///   * [key] - The single GlobalKey for the [Application] router.
+  FrameworkNavigator get router => _navigator ??= FrameworkNavigator( this );
+
+  /// Single set [Router] instance.
+  FrameworkNavigator? _navigator;
 
   /// Returns the [Application] most closely associated with the given context.
   ///
@@ -68,108 +130,19 @@ class Application extends FrameworkComponent {
     return null;
   }
 
-  /// The [Application] singleton instance.
-  static Application? _instance;
-
-  final String? storageID;
-
-  /// [Application] provided key-value storage.
-  ///
-  /// Contains data store
-  ///
-  /// See Also:
-  ///   * [BaseStore],
-  ///   * [KeyValueStore]
-  Storage get storage => _storage ??= Storage( storageID );
-
-  /// Single set [Storage] instance.
-  Storage? _storage;
-
-  /// [Application] [Router] singleton instance.
-  ///
-  /// See Also:
-  ///   * [Router] - Flutter navigation wrapper,
-  ///   * [key] - The single GlobalKey for the [Application] router.
-  FrameworkNavigator get router => _navigator ??= FrameworkNavigator( this );
-
-  /// Single set [Router] instance.
-  FrameworkNavigator? _navigator;
-
-  /// [AppViewModel] singleton instance.
-  ///
-  /// Contains Application level state (Globals).
-  ///
-  /// See Also:
-  ///   * [Application],
-  ///   * [ViewModel]
-  AppViewModel get viewModel => _viewModel ??= AppViewModel();
-
-  /// Single set [AppViewModel] instance.
-  AppViewModel? _viewModel;
-
-  /// Messaging bus for component/service/app communication.
-  final AppEventBus appBus;
-
-  final List<dynamic> typeAdapters;
-
-  /// Stores for currently loaded and WILl be loaded components (modules/services).
-  final Map<Type, FrameworkComponent> _components = {};
-  final Map<Type, FrameworkComponentBuilder> _asyncComponents = {};
-
-  List<Module> get modules => _components.values.whereType<Module>().toList();
-  List<Service> get services => _components.values.whereType<Service>().toList();
-
-  final Map<Module, List<ContentRoute>> _contentRoutes = {};
-  final Map<Module, List<ContentSlice>> _slices = {};
-
-  ModuleProvider? get activeProvider {
-    return modules.lastWhereOrNull((element) => element.activeProvider != null )?.activeProvider;
-  }
-
-  final Logger logger = Logger(
-    level: Level.verbose,
-    printer: PrettyPrinter(),
-  );
-
-  List<ContentType> get _registeredContentRoutes => _contentRoutes.isEmpty ? [] : _contentRoutes.values.reduce((value, element) {
-    return [
-      ...value,
-      ...element,
-    ];
-  }).map((e) => e.contentType).toList();
-
-  List<ContentType> get _registeredSlices => _slices.isEmpty ? [] : _slices.values.reduce((value, element) {
-    return [
-      ...value,
-      ...element,
-    ];
-  }).map((e) => e.contentType).toList();
-
-  // Deprecate
-  dynamic authenticator;
-  dynamic cacheHandler;
-
-  Stream get onEvent => appBus.stream;
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     logger.v( 'Navigator :: Pushed (${route.settings.name}) on-top of ${previousRoute?.settings.name ?? 'the underlying component'} ' );
   }
 
-
   @override
   Future<void> dispose() async {
-
-    _asyncComponents.clear();
-
-    for ( FrameworkComponent component in _components.values ) {
-      await component.dispose();
-    }
-
-    _components.clear();
-
-    await storage.mutable.dump( debugAllowDumpLocked: true );
-
+    await _componentRegistry.flush();
+    await _sliceRegistry.flush();
+    await _useCaseRegistry.flush();
+    await _routeRegistry.flush();
+    await _storageController.flush( debugAllowImmutableFlush: true );
   }
 
   @override
@@ -180,240 +153,159 @@ class Application extends FrameworkComponent {
       return;
     }
 
-    await storage.init( typeAdapters: typeAdapters );
+    await _storageController.init(
+      typeAdapters: typeAdapters,
+    );
 
     return super.init();
   }
 
-  Widget? get appBar => viewModel.appBar.value;
+  // *** Dependency Registries
 
-  void setAppBar( { Widget? widget, bool betweenFrame = false } ) {
-
-    void work() {
-      if ( widget == null ) {
-        viewModel.appBar.value = null;
-      } else {
-        viewModel.appBar.value = AppBarProxy(
-          child: widget,
-        );
-      }
-    }
-
-    if ( betweenFrame ) {
-      _workBetweenFrames(() async => work());
-    } else {
-      work();
-    }
+  /// Registers a UseCase, associating it to the [component].
+  registerUseCase( covariant UseCase useCase ) {
+    _useCaseRegistry.register( useCase );
   }
 
-  void toggleBottomSheet() {
-    if ( viewModel.solidController.isOpened ) {
-      viewModel.solidController.hide();
-    } else {
-      viewModel.solidController.show();
-    }
-  }
-
-  set bottomNavigation( Widget? widget ) => viewModel.bottomNavigation.value = widget;
-  Widget? get bottomNavigation => viewModel.bottomNavigation.value;
-
-  setBottomSheet( Widget? widget, [ bool show = true ] ) {
-    workBetweenFrames([
-          () async => viewModel.bottomSheet.value = widget,
-          () async {
-        if ( show ) {
-          viewModel.solidController.show();
-        }
-      },
-    ]);
-  }
-
-  Widget? get bottomSheet => viewModel.bottomSheet.value;
-
-  @override
-  void emit( event ) => appBus.emit( event );
-
-  Future<Object?> emitWithResponse( event, { Duration timeout = const Duration( milliseconds: 500, ) } ) => appBus.emitWithResponse( event, timeout: timeout );
-
-  Future<String> get currentEnvironment async {
-
-    String? domain = await storage.mutable.get<String>( storage_key_environment );
-
-    if ( domain == null ) {
-      throw Exception( 'currentDomain was accessed but read a null value' );
-    }
-
-    return domain;
-  }
-
-  T component<T extends FrameworkComponent>() {
-    assert( '$T' != 'Component', 'Component type not specified.' );
-    assert(_components.containsKey( T ), 'Component of type $T not registered.');
-    return _components[ T ] as T;
-  }
-
-  bool componentExists<T extends FrameworkComponent>() {
-    return _components.containsKey( T );
-  }
-
-  Future<String> get deviceID async {
-    String? id = await storage.immutable.get( storage_key_device_id );
-
-    if ( id == null ) {
-      id = const Uuid().v4();
-      storage.immutable.set( storage_key_device_id, id );
-    }
-
-    return id;
-  }
-
-
-  _register<T extends FrameworkComponent>( T component, { bool syncBus = true } ) {
-
-    assert( '$T' != 'Component', 'Component type not specified or inferred.' );
-
-    assert( () {
-      return ! _components.keys.contains( T );
-    }(), 'Component of type $T already registered.');
-
-    assert( () {
-      return ! _asyncComponents.keys.contains( T );
-    }(), 'AsyncComponent of type $T already registered.');
-
-    _components[T] = component;
-
-    logger.v( 'Application Registered Component of Type $T' );
+  /// Registers [FrameworkComponent] of type [T].
+  ///
+  /// - syncBus - Sync the Component bus with the Application stream, effectively
+  /// passing off events to the Application for relay.
+  register<T extends FrameworkComponent>( T component, { bool syncBus = true } ) {
 
     if ( component is Module ) {
-
-      component.slices.addAll( component.buildSlices() );
-      component.routes.addAll( component.buildRoutes() );
-
-      if ( component.slices.isNotEmpty ) {
-        assert( () {
-          var existing = _registeredSlices;
-          var added = component.slices.map((e) => e.contentType);
-
-          for ( ContentType type in added ) {
-            if ( existing.contains( type ) ) {
-              return false;
-            }
-          }
-
-          return true;
-        }(), 'Slice for given [ContentType] was already registered.');
-        _slices[ component ] = component.slices;
-
-        for ( var slice in component.slices ) {
-          logger.v( 'Application Registered ContentSlice for ${slice.contentType}' );
-        }
-      }
-
-      if ( component.routes.isNotEmpty ) {
-        assert( () {
-          var existing = _registeredContentRoutes;
-          var added = component.routes.map((e) => e.contentType);
-
-          for ( ContentType type in added ) {
-            if ( existing.contains( type ) ) {
-              return false;
-            }
-          }
-
-          return true;
-        }(), 'Content type was already registered. Each content type can only be handled by a single module.');
-
-        _contentRoutes[ component ] = component.routes;
-
-        for ( var route in component.routes ) {
-          logger.v( 'Application Registered ContentRoute for ${route.contentType}' );
-        }
-      }
+      _sliceRegistry.registerFor( component );
+      _routeRegistry.registerFor( component );
+    } else if ( component is! Service  ) {
+      throw Exception('Unsupported Component Registration Attempt');
     }
+
+    _useCaseRegistry.registerFor( component );
 
     if ( syncBus ) {
-      appBus.merge( component.bus );
+      _BusController().merge( component.bus );
     }
+
+    _componentRegistry.register<T>( component );
   }
 
-  bool canRouteToContentType( ContentType contentType ) {
-    try {
-      routeForContentType( contentType );
-      return true;
-    } catch ( e ) {
-      logger.v( 'Unable to route to ContentType: $contentType, ' );
-    }
-    return false;
-  }
-
-  ContentRoute routeForContentType( ContentType contentType ) {
-    assert( _registeredContentRoutes.contains( contentType ), 'Module to handle $contentType not registered' );
-    var registrationEntry = _contentRoutes.entries.firstWhere((element) => element.value.map((e) => e.contentType).contains( contentType));
-    return registrationEntry.value.firstWhere((element) => element.contentType == contentType);
-  }
-
-  bool sliceExists( ContentType contentType ) {
-    return _registeredSlices.contains( contentType );
-  }
-
-  Widget slice( BuildContext context, ContentType contentType, { ViewArgs? arguments } ) {
-    assert( _registeredSlices.contains( contentType ), 'Module to handle slice for $contentType not registered' );
-    var registrationEntry = _slices.entries.firstWhere((element) => element.value.map((e) => e.contentType).contains( contentType));
-    var slice = registrationEntry.value.firstWhere((element) => element.contentType == contentType);
-    return FutureBuilder(
-      future: () async {
-        return registrationEntry.key.init();
-      }(),
-      builder: ( ctx, snapshot ) => Vif(
-        test: () => snapshot.connectionState == ConnectionState.done,
-        ifTrue: () => ModuleProvider(
-          module: registrationEntry.key,
-          widget: slice.builder( arguments ),
-        ),
-      ),
-    );
-  }
-
-  register<T extends FrameworkComponent>( T component, { bool syncBus = true } ) {
-    _register<T>( component, syncBus: syncBus );
-  }
-
+  /// Registers [FrameworkComponent] of type [T] asynchronously.
+  ///
+  /// The Component will not build nor initialize until [loadAsyncComponent] is called.
+  ///
   registerAsync<T extends FrameworkComponent>( FrameworkComponentBuilder<T> builder ) {
-    assert( '$T' != 'Component', 'Component type not specified or inferred.' );
-    assert( () {
-      return ! _asyncComponents.keys.contains( T );
-    }(), 'AsyncComponent of type $T already registered.');
-
-    _asyncComponents[ T ] = builder;
+    return _componentRegistry.registerAsync<T>( builder );
   }
 
-  Future<T> loadAsyncComponent<T extends FrameworkComponent>() async {
+  /// Finalizes registration for a previously registered async [FrameworkComponent]
+  loadAsyncComponent<T extends FrameworkComponent>() {
 
-    if ( componentExists<T>() ) {
-      return this.component<T>();
+    if ( _componentRegistry.exists<T>() ) {
+      return _componentRegistry.get<T>();
     }
 
-    assert( _asyncComponents.keys.contains( T) );
+    var builder = _componentRegistry.getAsyncComponentBuilder<T>();
 
-    FrameworkComponentBuilder<T> builder = _asyncComponents[ T ] as FrameworkComponentBuilder<T>;
-
-    T component = builder.build();
-
-    _asyncComponents.remove( T );
-
-    _register<T>( component, syncBus: builder.syncBus );
+    register(builder.build(), syncBus: builder.syncBus );
 
     return component;
   }
 
-  Future<void> workBetweenFrames( List<FrameMutator> mutations ) async {
-    for ( var mutation in mutations ) {
-      await _workBetweenFrames( mutation );
+  /// Returns a registered component of type [T].
+  ///
+  /// Throws assertion if [T] has not been registered.
+  T component<T extends FrameworkComponent>() => _componentRegistry.get<T>();
+
+  /// Checks to see if a component of type [T] has been registered.
+  bool componentExists<T extends FrameworkComponent>() => _componentRegistry.exists<T>();
+
+  /// Returns a list of actively registered Modules.
+  List<Module> get modules => _componentRegistry.modules;
+
+  /// Returns a list of actively registered services.
+  List<Service> get services => _componentRegistry.services;
+
+  /// Check to see if a slice exists for the given type
+  bool sliceExists( String id ) => _sliceRegistry.exists( id );
+
+  /// Returns a ContentSlice for the given [ContentType]
+  ContentSlice slice( String id ) => _sliceRegistry.getSlice( id );
+
+  bool useCaseExists( String id ) => _useCaseRegistry.exists( id );
+
+  executeUseCase( String id, [ Map<String, dynamic>? args ] ) => _useCaseRegistry.getUseCase( id ).call( args );
+
+  /// Returns the currently active ModuleProvider.
+  ///
+  /// The [ModuleWidget] is responsible for tracking the number of Providers
+  /// created by the module.
+  ModuleProvider? get activeProvider => _componentRegistry.activeProvider;
+
+  /// Returns the currently active Module by first looking for the [activeProvider].
+  ///
+  /// The [ModuleWidget] is responsible for tracking the number of Providers
+  /// created by the module.
+  Module? get activeModule => activeProvider?.module;
+
+  // *** EventBus Related
+
+  /// Listens for events of type [T] or dynamic.
+  Stream onEvent<T>() => _BusController().onEvent<T>();
+
+  /// Relays events from the input bus out through the app bus
+  StreamSubscription mergeBus<T>( EventBus bus ) => _BusController().merge<T>( bus );
+
+  /// Fires an event from the app bus
+  @override
+  void emit( event ) => _BusController().emit( event );
+
+  /// Fires an event through the app bus, awaiting a response.
+  ///
+  /// [timeout] - How long to wait for a response (default 500ms).
+  Future<Object?> emitWithResponse( event, { Duration timeout = const Duration( milliseconds: 500, ) } ) {
+    return _BusController().emitWithResponse( event, timeout: timeout );
+  }
+
+  // *** View Related
+
+  AppViewModel get viewModel => _viewController.viewModel;
+
+  /// Returns the current value for appVar from the view model.
+  Widget? get appBar => _viewController.appBar;
+
+  /// Updates the current appBar value in the view model.
+  void setAppBar( { Widget? widget, bool betweenFrame = false } ) {
+    if ( betweenFrame ) {
+      workBetweenFrames([ () => _viewController.setAppBar( widget ) ]);
+    } else {
+      _viewController.setAppBar( widget );
     }
   }
 
-  Future<void> _workBetweenFrames( FrameMutator mutation ) {
-    return WidgetsBinding.instance.endOfFrame.then( ( _ ) => mutation() );
+  /// Updates the current bottomNavigation value in the view model.
+  set bottomNavigation( Widget? widget ) => _viewController.bottomNavigation = widget;
+
+  /// Returns the current bottomNavigation value from the view model.
+  Widget? get bottomNavigation => _viewController.bottomNavigation;
+
+  /// Updates the current bottomSheet value in the view model.
+  ///
+  /// - Optional [show] also toggles the bottomSheet value.
+  ///
+  /// Work is handled in-between render frames to avoid build race conditions.
+  setBottomSheet( Widget? widget, [ bool show = true ] ) {
+    var work = [
+          () => _viewController.setBottomSheet( widget ),
+    ];
+
+    if ( show ) {
+      work.add(() => _viewController.toggleBottomSheet());
+    }
+
+    workBetweenFrames( work );
   }
+
+  /// Toggles the current state of the bottomSheet in the view model.
+  void toggleBottomSheet() => _viewController.toggleBottomSheet();
+
 }
-typedef FrameMutator = Future<void> Function();

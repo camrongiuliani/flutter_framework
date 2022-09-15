@@ -12,7 +12,7 @@ void main() async {
 
   runApp( App.create(
     application: application,
-    initialRoute: FrameworkRoutes.onboardingStoreFront,
+    initialRoute: Maestro.routes.onboardingStoreFront,
   ) );
 
 }

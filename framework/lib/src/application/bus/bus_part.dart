@@ -1,23 +1,22 @@
-import 'dart:async';
-import 'package:event_bus/event_bus.dart';
-import 'package:uuid/uuid.dart';
-import 'package:app/framework.dart';
+part of '../application.dart';
 
-class AppEventBus {
-  static AppEventBus? _instance;
+
+class _BusController {
+
+  static _BusController? instance;
 
   final EventBus _bus;
 
-  Stream get stream => _bus.on();
+  _BusController._( this._bus );
 
-  AppEventBus._( this._bus );
-
-  factory AppEventBus( { EventBus? eventBus } ) {
-    return _instance ??= AppEventBus._( eventBus ?? EventBus() );
+  factory _BusController([ EventBus? customBus ]) {
+    return instance ??= _BusController._( customBus ?? EventBus() );
   }
 
-  merge( EventBus eventBus ) {
-    eventBus.on().listen( _bus.fire );
+  Stream onEvent<T>() => _bus.on<T>();
+
+  StreamSubscription merge<T>( EventBus eventBus ) {
+    return eventBus.on<T>().listen( _bus.fire );
   }
 
   void emit( event ) => _bus.fire( event );
@@ -49,4 +48,5 @@ class AppEventBus {
     return response;
 
   }
+
 }

@@ -115,12 +115,11 @@ class Module extends FrameworkComponent {
 
   bool canHandleRoute( String? routeName ) => routes.map((e) => e.routeName).contains( routeName );
 
+  bool checkGuard( ContentRoute request ) => ! request.guarded;
+
   @override
   Future<void> dispose() async {
 
   }
-
-  KVStore get storage => application.storage.mutable;
-
 
 }

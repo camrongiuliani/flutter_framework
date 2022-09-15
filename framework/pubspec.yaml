@@ -21,6 +21,7 @@ dependencies:
   get_it: ^7.2.0
 
   bvvm: ^0.0.1+1
+  observable_value: ^0.0.1+2
   abstract_kv_store: ^0.0.1+2
   element_tree_child_locator: ^0.0.1+1
   lenient_equality: ^0.0.1
